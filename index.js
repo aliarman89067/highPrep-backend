@@ -83,7 +83,7 @@ app.post("/create-user", async (req, res) => {
       await newUser.save();
       const { password: newPassword, ...rest } = newUser.toObject();
       const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-      res.cookie("highschoolprep", token);
+      res.cookie("highschoolprep", token, { maxAge: 60 * 60 * 24 * 10 });
 
       res.status(201).json({ success: true, data: rest });
     }
@@ -112,7 +112,7 @@ app.post("/get-user", async (req, res) => {
     }
     const { password: modelPass, ...rest } = findUser.toObject();
     const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-    res.cookie("highschoolprep", token);
+    res.cookie("highschoolprep", token, { maxAge: 60 * 60 * 24 * 10 });
     res.status(200).json({ success: true, data: rest });
   } catch (error) {
     console.log(error);
@@ -130,7 +130,7 @@ app.post("/create-user-google", async (req, res) => {
       if (checkPass) {
         const { password: modelPass, ...rest } = findUser.toObject();
         const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-        res.cookie("highschoolprep", token);
+        res.cookie("highschoolprep", token, { maxAge: 60 * 60 * 24 * 10 });
         return res.status(200).json({ success: true, data: rest });
       } else {
         return res
@@ -147,7 +147,7 @@ app.post("/create-user-google", async (req, res) => {
     await newUser.save();
     const { password: newUserPass, ...rest } = newUser.toObject();
     const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-    res.cookie("highschoolprep", token);
+    res.cookie("highschoolprep", token, { maxAge: 60 * 60 * 24 * 10 });
     res.status(201).json({ success: true, data: rest });
   } catch (error) {
     res.status(400).json({ success: false, message: "Something went wrong" });
