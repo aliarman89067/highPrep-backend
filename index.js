@@ -14,8 +14,9 @@ import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 
 const app = express();
-app.use(express.json());
 app.use(cookieParser());
+app.use("/stripe-check-webhook", express.raw({ type: "*/*" }));
+app.use(express.json());
 app.use(
   cors({
     origin: process.env.CLIENT_ORIGIN,
@@ -138,11 +139,7 @@ app.post("/create-user-google", async (req, res) => {
       if (checkPass) {
         const { password: modelPass, ...rest } = findUser.toObject();
         const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-        res.cookie("highschoolprep", token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "none",
-        });
+        res.cookie("highschoolprep", token);
         return res.status(200).json({ success: true, data: rest });
       } else {
         return res
@@ -159,11 +156,7 @@ app.post("/create-user-google", async (req, res) => {
     await newUser.save();
     const { password: newUserPass, ...rest } = newUser.toObject();
     const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-    res.cookie("highschoolprep", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-    });
+    res.cookie("highschoolprep", token);
     res.status(201).json({ success: true, data: rest });
   } catch (error) {
     res.status(400).json({ success: false, message: "Something went wrong" });
@@ -180,7 +173,6 @@ let PACKAGESNAMES = {
 app.post("/create-checkout-session", async (req, res) => {
   try {
     const { packageName } = req.body;
-    console.log(packageName);
 
     if (
       packageName === PACKAGESNAMES.oneMonth ||
@@ -189,6 +181,16 @@ app.post("/create-checkout-session", async (req, res) => {
     ) {
       const price = getPriceByName(packageName);
       const description = getDescByName(packageName);
+
+      const cookie = req.cookies.highschoolprep;
+      if (!cookie) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Cookie was not found" });
+      }
+      const {
+        rest: { _id },
+      } = await jwt.verify(cookie, process.env.JWT_SECRET);
 
       const sessionData = await STRIPE.checkout.sessions.create({
         line_items: [
@@ -207,6 +209,7 @@ app.post("/create-checkout-session", async (req, res) => {
         mode: "payment",
         metadata: {
           packageName: packageName,
+          userId: _id,
         },
         success_url: `${FRONTEND_URL}/payment-completed?packageName=${packageName}`,
         cancel_url: `${FRONTEND_URL}/payment-cancelled`,
@@ -293,5 +296,39 @@ app.post("/check-user", async (req, res) => {
     console.log(error);
 
     res.status(400).json({ success: false, message: "Somethin went wrong" });
+  }
+});
+app.post("/stripe-check-webhook", async (req, res) => {
+  let event;
+  try {
+    const sig = req.headers["stripe-signature"];
+    event = STRIPE.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (error) {
+    console.log(error);
+    return res.status(400).json({ message: `Stripe Error ${error.message}` });
+  }
+  if (event.type === "checkout.session.completed") {
+    const userId = event.data.object.metadata?.userId;
+    const packageName = event.data.object.metadata?.packageName;
+
+    const currentDate = new Date(Date.now());
+    const addTime = new Date(
+      currentDate.setMonth(currentDate.getMonth() + 4)
+    ).getTime();
+
+    const updateUser = await UserModel.findByIdAndUpdate(
+      userId,
+      {
+        isPremuim: true,
+        packageName,
+        purchaseAt: Date.now(),
+        expiresAt: addTime,
+      },
+      { new: true }
+    );
   }
 });
