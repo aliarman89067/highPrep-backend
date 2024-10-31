@@ -18,7 +18,6 @@ app.use(
     credentials: true,
   })
 );
-console.log(process.env.CLIENT_ORIGIN);
 
 mongoose
   .connect(process.env.MONGO_URI)
