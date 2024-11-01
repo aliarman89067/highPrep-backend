@@ -1,5 +1,13 @@
 import mongoose, { now } from "mongoose";
 
+const UserUnitSchema = new mongoose.Schema({
+  gradeName: { type: String },
+  subjectName: { type: String },
+  subjectId: { type: String },
+  unitId: { type: String },
+  unitName: { type: String },
+});
+
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true },
@@ -15,6 +23,7 @@ const UserSchema = new mongoose.Schema({
   expiresAt: { type: Date },
   packagePrice: { type: Number },
   oAuth: { type: Boolean },
+  playedSubUnits: [UserUnitSchema],
 });
 
 const UserModel = mongoose.model("user", UserSchema);

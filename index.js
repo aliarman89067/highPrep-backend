@@ -57,13 +57,38 @@ app.get("/getGradeById/:subjectId", async (req, res) => {
 
   res.json(gradesData);
 });
-app.get("/getUnit/:unitId", async (req, res) => {
-  const { unitId } = req.params;
-  const unitData = await UnitModel.findOne({ _id: unitId }).populate({
-    path: "subUnits",
-  });
+app.post("/getUnit", async (req, res) => {
+  try {
+    const { gradeName, subjectName, subjectId, unitId, unitName } = req.body;
+    const token = req.cookies.highschoolprep;
+    if (token) {
+      const {
+        rest: { _id },
+      } = jwt.verify(token, process.env.JWT_SECRET);
+      const findUser = await UserModel.findById(_id);
+      const isUnitExist = findUser.playedSubUnits.find(
+        (item) => item.unitId === unitId
+      );
+      if (!isUnitExist) {
+        findUser.playedSubUnits.push({
+          gradeName,
+          subjectName,
+          subjectId,
+          unitId,
+          unitName,
+        });
+      }
+      await findUser.save();
+    }
 
-  res.json(unitData);
+    const unitData = await UnitModel.findOne({ _id: unitId }).populate({
+      path: "subUnits",
+    });
+
+    res.json(unitData);
+  } catch (error) {
+    console.log(error);
+  }
 });
 
 // , {
