@@ -15,7 +15,7 @@ import cookieParser from "cookie-parser";
 
 const app = express();
 app.use(cookieParser());
-app.use("/stripe-check-webhook", express.raw({ type: "*/*" }));
+app.use("/stripe-checkout-webhook", express.raw({ type: "*/*" }));
 app.use(express.json());
 app.use(
   cors({
@@ -66,6 +66,12 @@ app.get("/getUnit/:unitId", async (req, res) => {
   res.json(unitData);
 });
 
+// , {
+//   httpOnly: true,
+//   secure: process.env.NODE_ENV === "production",
+//   sameSite: "none",
+// }
+
 app.post("/create-user", async (req, res) => {
   try {
     const { name, email, password, image } = req.body;
@@ -77,6 +83,7 @@ app.post("/create-user", async (req, res) => {
       const newUser = new UserModel();
       newUser.name = name;
       newUser.email = email;
+      newUser.oAuth = false;
       newUser.password = hashedPass;
       if (image) {
         newUser.image = image;
@@ -84,11 +91,7 @@ app.post("/create-user", async (req, res) => {
       await newUser.save();
       const { password: newPassword, ...rest } = newUser.toObject();
       const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-      res.cookie("highschoolprep", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "none",
-      });
+      res.cookie("highschoolprep", token);
 
       res.status(201).json({ success: true, data: rest });
     }
@@ -117,11 +120,7 @@ app.post("/get-user", async (req, res) => {
     }
     const { password: modelPass, ...rest } = findUser.toObject();
     const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-    res.cookie("highschoolprep", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-    });
+    res.cookie("highschoolprep", token);
     res.status(200).json({ success: true, data: rest });
   } catch (error) {
     console.log(error);
@@ -153,6 +152,7 @@ app.post("/create-user-google", async (req, res) => {
     newUser.email = email;
     newUser.password = hashPass;
     newUser.image = image;
+    newUser.oAuth = true;
     await newUser.save();
     const { password: newUserPass, ...rest } = newUser.toObject();
     const token = jwt.sign({ rest }, process.env.JWT_SECRET);
@@ -210,6 +210,7 @@ app.post("/create-checkout-session", async (req, res) => {
         metadata: {
           packageName: packageName,
           userId: _id,
+          packagePrice: price,
         },
         success_url: `${FRONTEND_URL}/payment-completed?packageName=${packageName}`,
         cancel_url: `${FRONTEND_URL}/payment-cancelled`,
@@ -295,10 +296,10 @@ app.post("/check-user", async (req, res) => {
   } catch (error) {
     console.log(error);
 
-    res.status(400).json({ success: false, message: "Somethin went wrong" });
+    res.status(400).json({ success: false, message: "Something went wrong" });
   }
 });
-app.post("/stripe-check-webhook", async (req, res) => {
+app.post("/stripe-checkout-webhook", async (req, res) => {
   let event;
   try {
     const sig = req.headers["stripe-signature"];
@@ -314,21 +315,84 @@ app.post("/stripe-check-webhook", async (req, res) => {
   if (event.type === "checkout.session.completed") {
     const userId = event.data.object.metadata?.userId;
     const packageName = event.data.object.metadata?.packageName;
+    const packagePrice = event.data.object.metadata?.packagePrice;
 
     const currentDate = new Date(Date.now());
+
+    let increamentTime =
+      packageName === PACKAGESNAMES.oneMonth
+        ? 1
+        : packageName === PACKAGESNAMES.fourMonth
+        ? 4
+        : packageName === PACKAGESNAMES.oneYear
+        ? 12
+        : 0;
+
     const addTime = new Date(
-      currentDate.setMonth(currentDate.getMonth() + 4)
+      currentDate.setMonth(currentDate.getMonth() + increamentTime)
     ).getTime();
 
-    const updateUser = await UserModel.findByIdAndUpdate(
+    await UserModel.findByIdAndUpdate(
       userId,
       {
-        isPremuim: true,
+        isPremium: true,
         packageName,
         purchaseAt: Date.now(),
         expiresAt: addTime,
+        packagePrice,
       },
       { new: true }
     );
+  }
+});
+
+app.delete("/logout-user", (req, res) => {
+  try {
+    res.cookie("highschoolprep", "");
+    res.send("Cookie removed");
+  } catch (error) {}
+});
+
+app.get("/get-profile-data/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const findUser = await UserModel.findById(userId);
+    if (!findUser) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User Not Found" });
+    }
+    const { password, ...rest } = findUser.toObject();
+    res.status(200).send(rest);
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.post("/update-user-form", async (req, res) => {
+  try {
+    const { userId, name, email, image, oldPassword, newPassword } = req.body;
+    const findUser = await UserModel.findById(userId);
+    findUser.name = name;
+    findUser.email = email;
+    findUser.image = image;
+    if (oldPassword && newPassword) {
+      const checkOldPass = await bcrypt.compare(oldPassword, findUser.password);
+      if (checkOldPass) {
+        const newHashedPass = await bcrypt.hash(newPassword, 10);
+        findUser.password = newHashedPass;
+      } else {
+        return res
+          .status(200)
+          .json({ success: false, message: "Old Password is wrong" });
+      }
+    }
+    await findUser.save();
+    const { password, ...rest } = findUser.toObject();
+    res.status(201).json({ success: true, data: rest });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ success: false, message: "Someting went wrong" });
   }
 });

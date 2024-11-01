@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "concurrently \"nodemon\" \"npm run stripe\"",
-    "stripe": "stripe listen --forward-to localhost:3000/stripe-check-webhook",
+    "stripe": "stripe listen --forward-to localhost:3000/stripe-checkout-webhook",
     "start": "node index.js"
   },
   "keywords": [],

@@ -9,10 +9,12 @@ const UserSchema = new mongoose.Schema({
     default:
       "https://static.vecteezy.com/system/resources/thumbnails/004/511/281/small/default-avatar-photo-placeholder-profile-picture-vector.jpg",
   },
-  isPremuim: { type: Boolean, default: false },
+  isPremium: { type: Boolean, default: false },
   packageName: { type: String },
   purchaseAt: { type: Date },
   expiresAt: { type: Date },
+  packagePrice: { type: Number },
+  oAuth: { type: Boolean },
 });
 
 const UserModel = mongoose.model("user", UserSchema);
