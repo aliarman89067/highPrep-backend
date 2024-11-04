@@ -6,6 +6,7 @@ const UserUnitSchema = new mongoose.Schema({
   subjectId: { type: String },
   unitId: { type: String },
   unitName: { type: String },
+  playedTime: { type: String },
 });
 
 const UserSchema = new mongoose.Schema({

@@ -59,6 +59,7 @@ app.get("/getGradeById/:subjectId", async (req, res) => {
 });
 app.post("/getUnit", async (req, res) => {
   try {
+    let playedSubUnitsId = null;
     const { gradeName, subjectName, subjectId, unitId, unitName } = req.body;
     const token = req.cookies.highschoolprep;
     if (token) {
@@ -79,13 +80,16 @@ app.post("/getUnit", async (req, res) => {
         });
       }
       await findUser.save();
+      playedSubUnitsId = findUser.playedSubUnits.find(
+        (item) => item.unitId === unitId
+      )._id;
     }
 
     const unitData = await UnitModel.findOne({ _id: unitId }).populate({
       path: "subUnits",
     });
 
-    res.json(unitData);
+    res.json({ data: unitData, playedId: playedSubUnitsId });
   } catch (error) {
     console.log(error);
   }
@@ -148,6 +152,7 @@ app.post("/get-user", async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "none",
     });
+
     res.status(200).json({ success: true, data: rest });
   } catch (error) {
     console.log(error);
@@ -429,5 +434,52 @@ app.post("/update-user-form", async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(400).json({ success: false, message: "Someting went wrong" });
+  }
+});
+app.post("/update-play-time", async (req, res) => {
+  try {
+    const { playedSubUnitsId, time } = req.body;
+    const token = req.cookies.highschoolprep;
+
+    if (!token) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Token not found" });
+    }
+
+    const {
+      rest: { _id },
+    } = jwt.verify(token, process.env.JWT_SECRET);
+
+    const data = await UserModel.findById(_id);
+
+    if (!data) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    // Find the index of the playedSubUnit to update
+    const unitIndex = data.playedSubUnits.findIndex(
+      (unit) => unit._id.toString() === playedSubUnitsId
+    );
+
+    if (unitIndex === -1) {
+      return res
+        .status(404)
+        .json({ success: false, message: "SubUnit not found" });
+    }
+
+    // Update the playedTime directly in the database
+    const newData = await UserModel.findByIdAndUpdate(
+      _id,
+      { $set: { [`playedSubUnits.${unitIndex}.playedTime`]: time } },
+      { new: true }
+    );
+
+    res.status(200).json({ success: true, newData });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
