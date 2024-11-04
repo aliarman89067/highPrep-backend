@@ -483,3 +483,62 @@ app.post("/update-play-time", async (req, res) => {
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
+
+app.get("/get-grade-by-name/:gradeName", async (req, res) => {
+  try {
+    const { gradeName } = req.params;
+    const gradesData = await GradeModel.findOne({
+      name: { $regex: new RegExp(`^${gradeName}$`, "i") },
+    })
+      .populate({
+        path: "subjects",
+        populate: { path: "chapters", populate: { path: "units" } },
+      })
+      .exec();
+    if (!gradesData) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Grade not found" });
+    }
+    res.json({ data: gradesData });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.get("/get-grade-by-subject/:subjectName", async (req, res) => {
+  try {
+    const { subjectName } = req.params;
+    const gradesData = await GradeModel.find()
+      .populate({
+        path: "subjects",
+        populate: { path: "chapters", populate: { path: "units" } },
+      })
+      .exec();
+    if (!gradesData) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Grade not found" });
+    }
+    let customGrade = [];
+    gradesData.forEach((grade) => {
+      grade.subjects.forEach((subject) => {
+        if (subject.name === subjectName) {
+          customGrade.push({
+            _id: grade._id,
+            name: grade.name,
+            description: grade.description,
+            subjects: [{ subject }],
+          });
+        }
+      });
+    });
+    const filterCustomGrade = customGrade.filter((item) =>
+      item.subjects.find((subject) => subject.subject.chapters.length > 0)
+    );
+
+    res.json({ data: filterCustomGrade.length > 0 ? filterCustomGrade : null });
+  } catch (error) {
+    console.log(error);
+  }
+});
