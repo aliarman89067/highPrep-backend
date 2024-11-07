@@ -12,6 +12,7 @@ import bcrypt from "bcryptjs";
 import Stripe from "stripe";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
+import CareerModel from "./model/Career.js";
 
 const app = express();
 app.use(cookieParser());
@@ -114,11 +115,13 @@ app.post("/create-user", async (req, res) => {
       await newUser.save();
       const { password: newPassword, ...rest } = newUser.toObject();
       const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-      res.cookie("highschoolprep", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "none",
-      });
+      res.cookie("highschoolprep", token);
+
+      // , {
+      //   httpOnly: true,
+      //   secure: process.env.NODE_ENV === "production",
+      //   sameSite: "none",
+      // }
 
       res.status(201).json({ success: true, data: rest });
     }
@@ -147,11 +150,13 @@ app.post("/get-user", async (req, res) => {
     }
     const { password: modelPass, ...rest } = findUser.toObject();
     const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-    res.cookie("highschoolprep", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-    });
+    res.cookie("highschoolprep", token);
+
+    // , {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite: "none",
+    // }
 
     res.status(200).json({ success: true, data: rest });
   } catch (error) {
@@ -538,6 +543,17 @@ app.get("/get-grade-by-subject/:subjectName", async (req, res) => {
     );
 
     res.json({ data: filterCustomGrade.length > 0 ? filterCustomGrade : null });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.post("/create-career-form", async (req, res) => {
+  try {
+    const requestData = req.body;
+
+    const newCareerForm = await CareerModel.create(requestData);
+    res.status(201).json(newCareerForm);
   } catch (error) {
     console.log(error);
   }
