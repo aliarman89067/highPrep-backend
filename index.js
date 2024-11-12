@@ -116,12 +116,11 @@ app.post("/create-user", async (req, res) => {
       await newUser.save();
       const { password: newPassword, ...rest } = newUser.toObject();
       const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-      res.cookie("highschoolprep", token);
-      // , {
-      //   httpOnly: true,
-      //   secure: process.env.NODE_ENV === "production",
-      //   sameSite: "none",
-      // }
+      res.cookie("highschoolprep", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "none",
+      });
 
       res.status(201).json({ success: true, data: rest });
     }
@@ -150,12 +149,11 @@ app.post("/get-user", async (req, res) => {
     }
     const { password: modelPass, ...rest } = findUser.toObject();
     const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-    res.cookie("highschoolprep", token);
-    // , {
-    //   httpOnly: true,
-    //   secure: process.env.NODE_ENV === "production",
-    //   sameSite: "none",
-    // }
+    res.cookie("highschoolprep", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+    });
 
     res.status(200).json({ success: true, data: rest });
   } catch (error) {
@@ -174,12 +172,12 @@ app.post("/create-user-google", async (req, res) => {
       if (checkPass) {
         const { password: modelPass, ...rest } = findUser.toObject();
         const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-        res.cookie("highschoolprep", token);
-        // , {
-        //   httpOnly: true,
-        //   secure: process.env.NODE_ENV === "production",
-        //   sameSite: "none",
-        // }
+        res.cookie("highschoolprep", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "none",
+        });
+
         return res.status(200).json({ success: true, data: rest });
       } else {
         return res
