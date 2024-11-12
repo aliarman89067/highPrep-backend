@@ -13,6 +13,7 @@ import Stripe from "stripe";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 import CareerModel from "./model/Career.js";
+import TrafficModel from "./model/Traffic.js";
 
 const app = express();
 app.use(cookieParser());
@@ -115,11 +116,12 @@ app.post("/create-user", async (req, res) => {
       await newUser.save();
       const { password: newPassword, ...rest } = newUser.toObject();
       const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-      res.cookie("highschoolprep", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "none",
-      });
+      res.cookie("highschoolprep", token);
+      // , {
+      //   httpOnly: true,
+      //   secure: process.env.NODE_ENV === "production",
+      //   sameSite: "none",
+      // }
 
       res.status(201).json({ success: true, data: rest });
     }
@@ -148,11 +150,12 @@ app.post("/get-user", async (req, res) => {
     }
     const { password: modelPass, ...rest } = findUser.toObject();
     const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-    res.cookie("highschoolprep", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-    });
+    res.cookie("highschoolprep", token);
+    // , {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === "production",
+    //   sameSite: "none",
+    // }
 
     res.status(200).json({ success: true, data: rest });
   } catch (error) {
@@ -171,11 +174,12 @@ app.post("/create-user-google", async (req, res) => {
       if (checkPass) {
         const { password: modelPass, ...rest } = findUser.toObject();
         const token = jwt.sign({ rest }, process.env.JWT_SECRET);
-        res.cookie("highschoolprep", token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "none",
-        });
+        res.cookie("highschoolprep", token);
+        // , {
+        //   httpOnly: true,
+        //   secure: process.env.NODE_ENV === "production",
+        //   sameSite: "none",
+        // }
         return res.status(200).json({ success: true, data: rest });
       } else {
         return res
@@ -550,6 +554,50 @@ app.post("/create-career-form", async (req, res) => {
 
     const newCareerForm = await CareerModel.create(requestData);
     res.status(201).json(newCareerForm);
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.get("/add-traffic", async (req, res) => {
+  try {
+    const token = req.cookies.highschoolprep;
+    if (token) {
+      const {
+        rest: { _id },
+      } = jwt.verify(token, process.env.JWT_SECRET);
+      await TrafficModel.create({ userId: _id, authorizedUser: true });
+      res.status(201).send("traffic Updated");
+      return;
+    } else {
+      await TrafficModel.create({ authorizedUser: false });
+      res.status(201).send("traffic Updated");
+      return;
+      // If Token not exist
+    }
+  } catch (error) {
+    console.log(error);
+  }
+});
+app.get("/update-user-membership/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const token = req.cookies.highschoolprep;
+    if (!token) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Token not found" });
+    }
+    const {
+      rest: { _id },
+    } = jwt.verify(token, process.env.JWT_SECRET);
+    if (userId !== _id)
+      return res
+        .status(400)
+        .json({ success: false, message: "User id not matched" });
+    const findUser = await UserModel.findById(userId);
+    const { password, ...rest } = findUser.toObject();
+    res.status(200).json({ ...rest });
   } catch (error) {
     console.log(error);
   }
