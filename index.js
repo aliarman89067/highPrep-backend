@@ -355,6 +355,11 @@ app.post("/stripe-checkout-webhook", async (req, res) => {
     console.log(error);
     return res.status(400).json({ message: `Stripe Error ${error.message}` });
   }
+
+  // Respond to Stripe immediately
+  res.status(200).send("Event received");
+  console.log("Response sended");
+
   if (event.type === "checkout.session.completed") {
     const userId = event.data.object.metadata?.userId;
     const packageName = event.data.object.metadata?.packageName;
@@ -375,17 +380,27 @@ app.post("/stripe-checkout-webhook", async (req, res) => {
       currentDate.setMonth(currentDate.getMonth() + increamentTime)
     ).getTime();
 
-    await UserModel.findByIdAndUpdate(
-      userId,
-      {
-        isPremium: true,
-        packageName,
-        purchaseAt: Date.now(),
-        expiresAt: addTime,
-        packagePrice,
-      },
-      { new: true }
-    );
+    // Perform the database update asynchronously
+    console.log("User going to update");
+
+    (async () => {
+      try {
+        await UserModel.findByIdAndUpdate(
+          userId,
+          {
+            isPremium: true,
+            packageName,
+            purchaseAt: Date.now(),
+            expiresAt: addTime,
+            packagePrice,
+          },
+          { new: true }
+        );
+      } catch (err) {
+        console.log("Database update failed", err);
+      }
+    })();
+    console.log("User is updated in database");
   }
 });
 
